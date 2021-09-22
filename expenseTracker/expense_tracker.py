@@ -10,7 +10,7 @@ from ExpenseItem import ExpenseItem
 from functools import partial
 import pickle
 import login
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import matplotlib.pyplot as plt
 
 def handle_name(i, *args):
@@ -123,7 +123,7 @@ def generate_graph(days, title):
     plt.ylabel("Total Expense")
     plt.title(title)
     plt.show()
-    
+
 def view_day_graph():
     generate_graph(1, "Expenses in the past day")
 
@@ -140,22 +140,48 @@ def save():
     '''saves user data into a bineary text file'''
     update()
     today = date.today().strftime("%Y/%m/%d")
-    print(list(saved_dates.keys()))
     today_total = {today: ExpenseItem.total}
+
+    '''
+    if 1 or more days passed since user has entered any expense,
+    fills up saved_dates with those passed days and total 
+    expense for that day will be 0
+    '''
+    day = date.today()
+    last_day = date.today()
+    if saved_dates:
+        last_day = datetime.strptime(list(reversed(saved_dates.keys()))[0],
+                                                    "%Y/%m/%d").date()
+    if day != last_day:
+        last_day += timedelta(1)
+    while day != last_day:
+        last_day = last_day.strftime("%Y/%m/%d")
+        saved_dates[last_day] = 0
+        last_day = datetime.strptime(last_day, "%Y/%m/%d").date()
+        last_day += timedelta(1)
+
+    #adds a new entry for today, or updates the entry if exists
     if today in saved_dates:
         saved_dates[today] += ExpenseItem.total
     else:
         saved_dates.update(today_total)
+
+    #totals total expense since the start of the account
     new_total = ExpenseItem.total + saved_total
     filled_items = []
     names = [item.get_name() for item in saved_items]
 
+    '''
+    filters out entries where either expense_name was empty
+    or expense_amount was empty for a specific expense
+    '''
     for item in items:
         item_name = item.get_name()
         if item_name != '' and item.get_amount() != 0:
             if item_name in names:
                 i = names.index(item_name)
-                saved_items[i].set_amount(saved_items[i].get_amount() + item.get_amount())
+                saved_items[i].set_amount(saved_items[i].get_amount() + \
+                item.get_amount())
             else:
                 filled_items.append(item)
     new_items = saved_items + filled_items
@@ -177,9 +203,6 @@ def main():
             saved_dates = pickle.load(f)
             saved_total = pickle.load(f)
             saved_items = pickle.load(f)
-            for i in saved_items:
-                print(i.get_name())
-                print(i.get_amount())
     except FileNotFoundError:
         pass
     
